@@ -1,139 +1,146 @@
+''' Global Variables '''
+
+g_median_color = []
+g_image_on_display = []
+g_original_image_on_display = []
+
+
+''' Imports '''
+
 import cv2
 import numpy as np
 import os
+import copy
 from matplotlib import pyplot as plt
 
-def nothing(x):
-    pass
+''' Functions ''' 
+
+def trackbar_handler(x):
+    print(x)
+    
+def assign_median_color(color_values):
+    global g_median_color
+    g_median_color = color_values
+    
+def build_display(image):
+    
+
+def reset_image_on_display():
+    global g_image_on_display
+    g_image_on_display = g_original_image_on_display
+    cv2.imshow("image", g_image_on_display)
+    
 
 
-def click_event(event, x, y, flags, params):
+def click_event(event, x, y, flags, params): 
+    
+    image = params
     
     if event == cv2.EVENT_LBUTTONDOWN:
-        print(x, y)
-
-    if event == cv2.EVENT_RBUTTONDOWN:
-        # Extract image out of params
-        img = params 
         
-        red = img[y,x,2]
-        blue = img[y,x,0]
-        green = img[y,x,1]
-        print(red, green, blue) ### prints to command line
-        strRGB = str(red) + "," + str(green) + "," +str(blue)
+        blue = image[y,x,0]
+        green = image[y,x,1]
+        red = image[y,x,2]
+        
+        assign_median_color([blue, green, red])
+        
+        strRGB = str(red) + "," + str(green) + "," + str(blue)
         font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(img,strRGB,(x,y), font, 1,(255,255,255),2)
-        cv2.imshow('image', img)
+        cv2.putText(image, strRGB, (x,y), font, 1, (255,255,255), 2)
+        cv2.imshow("image", image)
         
-    
+    if event == cv2.EVENT_RBUTTONDOWN:
+        reset_image_on_display() 
         
-        
-def main():
+''' Code '''
+
+images = []
     
-    images = []
-    
-    CURRENT_FILE = os.path.dirname(__file__)
-    DIR = os.path.join(CURRENT_FILE, "attachments/")
-    
-    for file in os.listdir(DIR):
-        images.append(file)
-    
-    
-    image = cv2.imread(DIR + images[0], cv2.IMREAD_UNCHANGED)
-    blue_channel, green_channel, red_channel = cv2.split(image)
-    alpha_channel = np.ones(blue_channel.shape, dtype=blue_channel.dtype) * 255 # arbitrary alpha channel
-    
-    image_BGRA = cv2.merge((blue_channel, green_channel, red_channel, alpha_channel))
-    
-    IMAGE_WIDTH = image_BGRA.shape[1]
-    IMAGE_HEIGHT = image_BGRA.shape[0]
-    IMAGE_RESIZE_FACTOR = 5
-    # Resize the imported picture
-    image_BGRA = cv2.resize(
-        image_BGRA, 
-        (
-                int(IMAGE_WIDTH / IMAGE_RESIZE_FACTOR), 
-                int(IMAGE_HEIGHT / IMAGE_RESIZE_FACTOR)
-        )
-    )
-    
-    cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-    
-    # cv2.createTrackbar('A', 'image', 0, 255, nothing)
-    cv2.createTrackbar('Sigma', 'image', 0, 100, nothing)
-    
-    # Kernel for morphological transformations
-    kernel = np.ones((5,5),np.uint8)
-    
-    
-    
-    
-    # sigma = float(cv2.getTrackbarPos('Sigma', 'image')) / 100
-    # median = np.median(image) 
-    # lower = int(max(0, (1.0 - sigma) * median))
-    # upper = int(min(255, (1.0 + sigma) * median))
-    
-    '''
-    cv2.Canny(
+CURRENT_FILE = os.path.dirname(__file__)
+DIR = os.path.join(CURRENT_FILE, "attachments/")
+
+for file in os.listdir(DIR):
+    images.append(file)
+
+
+RAW_IMAGE = cv2.imread(DIR + images[1], cv2.IMREAD_UNCHANGED)
+BLUE_CHANNEL, GREEN_CHANNEL, RED_CHANNEL = cv2.split(RAW_IMAGE)
+ALPHA_CHANNEL = np.ones(BLUE_CHANNEL.shape, dtype = BLUE_CHANNEL.dtype) * 255 # arbitrary alpha channel
+
+image_BGRA = cv2.merge((BLUE_CHANNEL, GREEN_CHANNEL, RED_CHANNEL, ALPHA_CHANNEL))
+
+IMAGE_WIDTH = image_BGRA.shape[1]
+IMAGE_HEIGHT = image_BGRA.shape[0]
+IMAGE_RESIZE_FACTOR = 5
+
+# Resize the imported picture
+image_BGRA = cv2.resize(
     image_BGRA, 
-    lower, 
-    upper
+    (
+            int(IMAGE_WIDTH / IMAGE_RESIZE_FACTOR), 
+            int(IMAGE_HEIGHT / IMAGE_RESIZE_FACTOR)
     )
-    '''
-    
-    edges = cv2.morphologyEx(
-                cv2.dilate(
-                    cv2.morphologyEx(
-                        image_BGRA,                            
-                        cv2.MORPH_OPEN,
-                        kernel
-                    ), 
-                    kernel, 
-                    iterations = 3
-                ),
-                cv2.MORPH_CLOSE, 
-                kernel
-            )
-            
-    cv2.imshow('image', edges)
-    
-    cv2.setMouseCallback('image', click_event, edges)
-    
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    
-    
-main()
+)
+
+# Name the window
+cv2.namedWindow("image", cv2.WINDOW_NORMAL)
+
+# Trackbar for canny edge detection (sigma value)
+cv2.createTrackbar("Sigma", "image", 0, 100, trackbar_handler)
+cv2.createTrackbar("delta", "image", 0, 100, trackbar_handler)
+ALPHA = "ON : 0 \n OFF : 1"
+cv2.createTrackbar(ALPHA, "image", 0, 1, trackbar_handler)
+
+
+# Kernel for morphological transformations
+kernel = np.ones((5,5), np.uint8)
 
 '''
-MATRIX_COLUMN_COUNT = 1
-if (len(images) % MATRIX_COLUMN_COUNT == 0):
-    MATRIX_ROW_COUNT = len(images) / MATRIX_COLUMN_COUNT
-else:
-    MATRIX_ROW_COUNT = len(images) / MATRIX_COLUMN_COUNT + 1
-position = 1
+sigma = float(cv2.getTrackbarPos('Sigma', 'image')) / 100
+median = np.median(image_BGRA) 
+lower = int(max(0, (1.0 - sigma) * median))
+upper = int(min(255, (1.0 + sigma) * median))
 
-for file in images:
-    image = cv2.imread(DIR + file, cv2.IMREAD_UNCHANGED)
-    
-    sigma = 0.33
-    # compute the median of the single channel pixel intensities
-    v = np.median(image) 
-    # apply automatic Canny edge detection using the computed median
-    lower = int(max(0, (1.0 - sigma) * v))
-    upper = int(min(255, (1.0 + sigma) * v))
-    
-    edges = cv2.Canny(image, lower, upper)
-    # cv2.imshow(file, edges)
-    
-    plt.subplot(MATRIX_ROW_COUNT, MATRIX_COLUMN_COUNT, position), plt.imshow(edges, cmap = 'gray')
-    
-    position += 1
 
-plt.show()
-	
+edges = cv2.Canny(
+            image_BGRA, 
+            lower, 
+            upper
+        )
+'''
 
-cv2.waitKey(0)
+closed_image = cv2.morphologyEx(image_BGRA, cv2.MORPH_CLOSE, kernel) 
+dilated_image = cv2.dilate(image_BGRA, kernel, iterations  = 1)
+opened_image = cv2.morphologyEx(image_BGRA, cv2.MORPH_OPEN, kernel)
+
+g_image_on_display = image_BGRA
+g_original_image_on_display = copy.deepcopy(g_image_on_display)
+
+cv2.imshow("image", g_image_on_display)
+
+cv2.setMouseCallback("image", click_event, g_image_on_display)
+
+while(True):
+    
+    k = cv2.waitKey(1) & 0xFF
+    if k == 27:
+        break
+    
+    alpha_state = cv2.getTrackbarPos(ALPHA, "image")
+    delta_value = cv2.getTrackbarPos("delta", "image")
+    
+    if alpha_state == 1 and not (g_median_color is None):
+       
+        for y in g_image_on_display:
+            accumulated_median_color_values = np.sum(g_median_color)
+            for x in y:
+                blue = g_image_on_display[y, x, 0]
+                green = g_image_on_display[y, x, 1]
+                red = g_image_on_display[y, x, 2]
+                if abs(accumulated_median_color_values - (blue + green + red)) <= (1 / delta_value) * accumulated_median_color_values:
+                    g_image_on_display[y, x, 3] = 0
+        
+        cv2.imshow("image", g_image_on_display)
+
 cv2.destroyAllWindows()
-'''
 
